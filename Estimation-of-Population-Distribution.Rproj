@@ -12,127 +12,136 @@ Encoding: UTF-8
 RnwWeave: Sweave
 LaTeX: pdfLaTeX
 
+##CODE:
+
 library(SPARQL)
-library(sp)
 library(ggplot2)
 
-endpoint <- "http://virtuoso.okfn.gr/sparql"
-query <-'
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX vfp:  <http://okfn.gr/ontology/vfp#>
-PREFIX foaf: <http://xmlns.com/foaf/0.1/> 
-PREFIX dsd:  <http://cordis.okfn.gr/ontology/dsd/>
-PREFIX owl: <http://www.w3.org/2002/07/owl#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-SELECT ?rcn ?label ?Funding ?totalCost
-WHERE { 
-?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://okfn.gr/ontology/vfp#Project> .
-?s <http://okfn.gr/ontology/vfp#identification> ?rcn .
-?s skos:prefLabel ?label .
-?s  <http://okfn.gr/ontology/vfp#budget> ?budget .
-?budget <http://cordis.okfn.gr/ontology/dsd/FP6/measure/amountTotal> ?totalCost . 
-?budget <http://cordis.okfn.gr/ontology/dsd/FP6/measure/amountEU> ?Funding . 
-}     
-ORDER BY DESC(?totalCost) '
-qd <- SPARQL(endpoint, query)
-qd <- qd$results
+endpoint <- "http://dbpedia.org/sparql"
 
-ggplot(data = qd, aes(x=label, y=totalCost)) + theme_bw() + geom_bar(stat="identity") + 
+#construct SPARQL query to select the data from dbpedia
+
+query<-'
+prefix      dbpedia: <http://dbpedia.org/resource/> 
+prefix  dbpedia-owl: <http://dbpedia.org/ontology/> 
+
+SELECT DISTINCT  ?place 
+                 ?latitude 
+                 ?longitude 
+                 ?population 
+  WHERE 
+    {
+      ?place          dbpedia-owl:country  <http://dbpedia.org/resource/Greece> .
+      ?place  dbpedia-owl:populationTotal  ?population                                  .
+      ?place                      geo:lat  ?latitude                                    .
+      ?place                     geo:long  ?longitude                                   .
+    } 
+  ORDER BY ?place 
+' 
+
+q100<-SPARQL(endpoint, query)
+q100<- q100$results
+q100
+summary(q100$population)
+
+ggplot(data = q100, aes(x=place, y=population)) + theme_bw() + geom_bar(stat="identity") + 
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) + 
-  ggtitle("Drug-related Hospital Discharges 2012–2013 (Rate per 10,000 people)") 
+  ggtitle("Population of 500 United Kingdom's Regions using data from DBpedia ") 
 + labs(x="Council Area", y="Rate per 100,000 people") + 
   theme(legend.position=
           "none")
+
+#####Apply machine learning algorithm - Classification and Regression trees######
+
 library(tree)
 library(ISLR)
-attach(qd)
-str(qd)
-High=ifelse(qd$totalCost<=3.504e+06,"No","Yes")
-qd=data.frame(qd,High)
-head(qd)
-
-tree.qd=tree(High~.-totalCost,qd)
-summary(tree.qd)
+attach(q100)
+str(q100)
+High=ifelse(q100$population<=100000,"No","Yes") #120-0.69-0.169
+q100=data.frame(q100,High)
+head(q100)
+sort(High)
+tree.q100=tree(High~.-population,q100)
+summary(tree.q100)
+tree.q100
 
 par(mar=c(3,1,3,1))
-plot(tree.qd)
-text(tree.qd,pretty=0,cex=0.5)
+plot(tree.q100)
+text(tree.q100,pretty=0,cex=0.5)
 
+### Classification tree (GREECE)
 
-####Creating the training sample and apply the tree model on it 
+####Create the test sample and apply the tree model on it 
 set.seed(2)
-train=sample(1:nrow(qd), 1000)
-qd.test=qd[-train,]
+train=sample(1:nrow(q100),68) 
+q100.test=q100[-train,]
 High.test=High[-train]
 
-tree.qd=tree(High~.-totalCost,qd,subset=train)
-tree.pred=predict(tree.qd,qd.test,type="class")
+tree.q100=tree(High~.-population,q100,subset=train)
+tree.pred=predict(tree.q100,q100.test,type="class")
 xtab1<-table(tree.pred,High.test)
 xtab1
-(3781+1228)/(3781+1228+112+298)    #no-no+yes-yes/sum
-(4590+1235)/(4590+1235+146+349)
+(31+18)/(31+18+11+8)   ## 0.7206
 
-### prune the tree (cross validation for determine the optimal level of tree complexity)
+#### tree pruning (cross validation for determining the optimal level of tree complexity)
 set.seed(3)
-cv.qd=cv.tree(tree.qd,FUN=prune.misclass)
-names(cv.qd)
+cv.q100=cv.tree(tree.q100,FUN=prune.misclass)
+names(cv.q100)
 
 
-#### Error rate & cost complexity regards of tree size
-plot(cv.qd$size ,cv.qd$dev ,type="b",
-     ylab = "cross-validation error rate", xlab = "size")
+#### error rate and complexity cost in relation to tree size
+plot(cv.q100$size ,cv.q100$dev ,type="b",ylab = "cross-validation error rate", xlab = "size")
 
-plot(cv.qd$k ,cv.qd$dev ,type="b",
-     ylab = "cost-complexity parameter k", xlab = "size")
+plot(cv.q100$k ,cv.q100$dev ,type="b",ylab = "cost-complexity parameter k", xlab = "size")
 
-### searching for suitable tree
-cv.qd
+### search the appropriate tree
+cv.q100
 
-### Tree pruning (We choose to prune the tree in three junctions)
-prune.qd=prune.misclass(tree.qd,best=3)
-plot(prune.qd)
-text(prune.qd,pretty=0,cex=0.85)
+### Tree pruning (Choose to prune the tree into three junctions)
+prune.q100=prune.misclass(tree.q100,best=5)
+plot(prune.q100)
+text(prune.q100,pretty=0,cex=0.85)
 
-### Validation 
-tree.pred=predict(prune.qd,qd.test,type="class")
+### Pruning tree validation
+tree.pred=predict(prune.q100,q100.test,type="class")
 xtab2<-table(tree.pred,High.test)
 xtab2
-(3781+1228)/(3781+1228+298+112)    ## 0.9243403
-(4590+1235)/(4590+1235+146+349)
+(29+19)/(29+19+13+7)      ## 0.7059
 
 
-### Regression trees
+### Regression tree (GREECE)
 
-#Tree construction
+#tree constructiong
 set.seed (1)
-train = sample (1: nrow(qd), nrow(qd)/2)
+train = sample (1: nrow(q100), nrow(q100)/2)
 
-tree.boston =tree(totalCost~.,qd ,subset =train)
+tree.boston =tree(population~.,q100 ,subset =train)
 summary (tree.boston )
 
 plot(tree.boston)
 text(tree.boston ,pretty =0,cex=0.85)
 
-#Pruning
-cv.boston =cv.tree(tree.boston)
+#pruning
+cv.boston =cv.tree(tree.boston )
 cv.boston
 
 cvtable<-cbind(cv.boston$size,cv.boston$dev)
 colnames(cvtable)<-c('size','deviance')
 cvtable
 min(cvtable[,2])
+
+min(cvtable[,2])
 plot(cv.boston$size ,cv.boston$dev ,type='b')
 
-prune.boston =prune.tree(tree.boston ,best =6)
+prune.boston =prune.tree(tree.boston ,best =3)
+summary(prune.boston )
 plot(prune.boston )
 text(prune.boston ,pretty =0,cex=0.85)
 
 
-#### Prediction for test data
-yhat=predict(tree.boston ,newdata =qd[-train,])
-boston.test=qd[-train ,"totalCost"]
+#### Prediction for training set
+yhat=predict(tree.boston ,newdata =q100[-train,])
+boston.test=q100[-train ,"population"]
 plot(yhat ,boston.test)
 abline (0,1)
 
