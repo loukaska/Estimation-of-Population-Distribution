@@ -12,14 +12,19 @@ Encoding: UTF-8
 RnwWeave: Sweave
 LaTeX: pdfLaTeX
 
-##CODE:
+###############################################################################################################################
+#####CODE:
 
 library(SPARQL)
 library(ggplot2)
 
+#############################################################################################  
+# input the query editor
+
 endpoint <- "http://dbpedia.org/sparql"
 
-#construct SPARQL query to select the data from dbpedia
+#############################################################################################
+# construct SPARQL query to select the data from dbpedia
 
 query<-'
 prefix      dbpedia: <http://dbpedia.org/resource/> 
@@ -51,7 +56,8 @@ ggplot(data = q100, aes(x=place, y=population)) + theme_bw() + geom_bar(stat="id
   theme(legend.position=
           "none")
 
-#####Apply machine learning algorithm - Classification and Regression trees######
+####################################################################################################
+# Apply machine learning algorithm - Classification and Regression trees######
 
 library(tree)
 library(ISLR)
@@ -69,9 +75,10 @@ par(mar=c(3,1,3,1))
 plot(tree.q100)
 text(tree.q100,pretty=0,cex=0.5)
 
+###########################################################################################
 ### Classification tree (GREECE)
 
-####Create the test sample and apply the tree model on it 
+####Create the test sample and apply the tree model on this 
 set.seed(2)
 train=sample(1:nrow(q100),68) 
 q100.test=q100[-train,]
@@ -108,7 +115,7 @@ xtab2<-table(tree.pred,High.test)
 xtab2
 (29+19)/(29+19+13+7)      ## 0.7059
 
-
+##############################################################################################################
 ### Regression tree (GREECE)
 
 #tree constructiong
