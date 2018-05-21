@@ -51,7 +51,7 @@ summary(q100$population)
 
 ggplot(data = q100, aes(x=place, y=population)) + theme_bw() + geom_bar(stat="identity") + 
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) + 
-  ggtitle("Population of 500 United Kingdom's Regions using data from DBpedia ") 
+  ggtitle("Population of Greek Regions using data from DBpedia ") 
 + labs(x="Council Area", y="Rate per 100,000 people") + 
   theme(legend.position=
           "none")
